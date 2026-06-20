@@ -79,7 +79,7 @@ class ProductListView(ListAPIView):
     serializer_class = ProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'shop', 'price']
-    search_fields = ['name', 'description']  # ✅ Исправлено: только существующие поля
+    search_fields = ['name', 'description']
     ordering_fields = ['price', 'name', 'created_at']
     ordering = ['-created_at']
     
