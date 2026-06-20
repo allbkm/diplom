@@ -10,6 +10,17 @@ from .serializers import *
 from .permissions import IsAuthenticated
 from .tasks import send_order_confirmation_email
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle, ScopedRateThrottle
+
+
+class RegisterThrottle(ScopedRateThrottle):
+    scope = 'register'
+
+class LoginThrottle(ScopedRateThrottle):
+    scope = 'login'
+
+class CartThrottle(ScopedRateThrottle):
+    scope = 'cart'
 
 
 class RegisterView(APIView):
