@@ -8,11 +8,33 @@ from django.db import transaction
 from .models import *
 from .serializers import *
 from .permissions import IsAuthenticated
-from .tasks import send_order_confirmation_email  # Только одна задача
+from .tasks import send_order_confirmation_email
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 
 
 class RegisterView(APIView):
-    """Регистрация пользователя"""
+    """
+    Регистрация пользователя
+    """
+
+    @extend_schema(
+        request=UserRegistrationSerializer,
+        responses={201: UserRegistrationSerializer},
+        description="Регистрация нового пользователя",
+        examples=[
+            OpenApiExample(
+                'Пример запроса',
+                value={
+                    'first_name': 'Иван',
+                    'last_name': 'Иванов',
+                    'email': 'ivan@example.com',
+                    'password': 'SecurePass123',
+                    'password_confirm': 'SecurePass123'
+                },
+                request_only=True,
+            ),
+        ],
+    )
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -36,7 +58,15 @@ class RegisterView(APIView):
 
 
 class LoginView(APIView):
-    """Вход пользователя"""
+    """
+    Вход пользователя
+    """
+
+    @extend_schema(
+        request=UserLoginSerializer,
+        responses={200: UserLoginSerializer},
+        description="Вход в систему",
+    )
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -75,13 +105,28 @@ class LoginView(APIView):
 
 
 class ProductListView(ListAPIView):
-    """Список товаров с фильтрацией и поиском"""
+    """
+    Список товаров с фильтрацией и поиском
+    """
     serializer_class = ProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'shop', 'price']
     search_fields = ['name', 'description']
     ordering_fields = ['price', 'name', 'created_at']
     ordering = ['-created_at']
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='category', description='ID категории', required=False, type=int),
+            OpenApiParameter(name='shop', description='ID магазина', required=False, type=int),
+            OpenApiParameter(name='min_price', description='Минимальная цена', required=False, type=float),
+            OpenApiParameter(name='max_price', description='Максимальная цена', required=False, type=float),
+            OpenApiParameter(name='search', description='Поисковый запрос', required=False, type=str),
+        ],
+        description="Получение списка товаров с фильтрацией и поиском",
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = Product.objects.select_related('category', 'shop').all()
@@ -112,9 +157,15 @@ class ProductListView(ListAPIView):
 
 
 class ContactView(APIView):
-    """Управление контактами"""
+    """
+    Управление контактами
+    """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: ContactSerializer(many=True)},
+        description="Получение списка контактов текущего пользователя",
+    )
     def get(self, request):
         contacts = Contact.objects.filter(user=request.user)
         serializer = ContactSerializer(contacts, many=True)
@@ -123,6 +174,11 @@ class ContactView(APIView):
             'contacts': serializer.data
         })
 
+    @extend_schema(
+        request=ContactSerializer,
+        responses={201: ContactSerializer},
+        description="Добавление нового контакта",
+    )
     def post(self, request):
         serializer = ContactSerializer(data=request.data)
         if serializer.is_valid():
@@ -137,6 +193,11 @@ class ContactView(APIView):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        request=ContactSerializer,
+        responses={200: ContactSerializer},
+        description="Обновление существующего контакта",
+    )
     def put(self, request, pk):
         try:
             contact = Contact.objects.get(pk=pk, user=request.user)
@@ -159,6 +220,9 @@ class ContactView(APIView):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        description="Удаление контакта",
+    )
     def delete(self, request, pk):
         try:
             contact = Contact.objects.get(pk=pk, user=request.user)
@@ -175,13 +239,19 @@ class ContactView(APIView):
 
 
 class CartView(APIView):
-    """Управление корзиной"""
+    """
+    Управление корзиной
+    """
     permission_classes = [IsAuthenticated]
 
     def get_cart(self, user):
         cart, _ = Cart.objects.get_or_create(user=user, is_active=True)
         return cart
 
+    @extend_schema(
+        responses={200: CartSerializer},
+        description="Просмотр текущей корзины",
+    )
     def get(self, request):
         cart = self.get_cart(request.user)
         serializer = CartSerializer(cart)
@@ -190,6 +260,11 @@ class CartView(APIView):
             'cart': serializer.data
         })
 
+    @extend_schema(
+        request=AddToCartSerializer,
+        responses={201: CartSerializer},
+        description="Добавление товара в корзину",
+    )
     def post(self, request):
         serializer = AddToCartSerializer(data=request.data)
         if not serializer.is_valid():
@@ -233,6 +308,9 @@ class CartView(APIView):
             'cart': serializer.data
         }, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        description="Удаление товара из корзины",
+    )
     def delete(self, request, item_id):
         try:
             cart = Cart.objects.get(user=request.user, is_active=True)
@@ -258,9 +336,16 @@ class CartView(APIView):
 
 
 class OrderConfirmView(APIView):
-    """Подтверждение заказа"""
+    """
+    Подтверждение заказа
+    """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=OrderConfirmSerializer,
+        responses={201: OrderSerializer},
+        description="Подтверждение заказа",
+    )
     @transaction.atomic
     def post(self, request):
         serializer = OrderConfirmSerializer(data=request.data)
@@ -317,7 +402,6 @@ class OrderConfirmView(APIView):
         cart.save()
         Cart.objects.create(user=request.user, is_active=True)
 
-        # Отправляем email подтверждения асинхронно через Celery
         send_order_confirmation_email.delay(order.id)
 
         return Response({
@@ -334,9 +418,15 @@ class OrderConfirmView(APIView):
 
 
 class OrderHistoryView(APIView):
-    """История и статусы заказов"""
+    """
+    История и статусы заказов
+    """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: OrderSerializer(many=True)},
+        description="Получение истории всех заказов",
+    )
     def get(self, request, order_id=None):
         if order_id:
             try:
