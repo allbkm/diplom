@@ -98,6 +98,17 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+        'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '10/minute',      # Неавторизованные: 10 запросов в минуту
+        'user': '30/minute',      # Авторизованные: 30 запросов в минуту
+        'register': '3/hour',     # Регистрация: 3 попытки в час
+        'login': '5/minute',      # Логин: 5 попыток в минуту
+        'cart': '20/minute',      # Корзина: 20 запросов в минуту
+    },
 }
 
 from datetime import timedelta
