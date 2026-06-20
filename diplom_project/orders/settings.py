@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'django_filters',
     'corsheaders',
+    'drf_spectacular',
 
     # Local
     'backend',
@@ -96,6 +97,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 from datetime import timedelta
@@ -119,3 +121,19 @@ CELERY_TIMEZONE = TIME_ZONE
 
 # Настройки для email (ТОЛЬКО ДЛЯ РАЗРАБОТКИ)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# НАСТРОЙКИ DRF-SPECTACULAR
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Diplom Project API',
+    'DESCRIPTION': 'API для интернет-магазина с асинхронной обработкой заказов',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+        'displayRequestDuration': True,
+    },
+}
