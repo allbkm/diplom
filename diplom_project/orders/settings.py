@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_spectacular',
     'social_django',
+    'imagekit',
     'baton.autodiscover',
 
     # Local
@@ -91,6 +92,10 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'backend.User'
 
@@ -155,19 +160,16 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-# НАСТРОЙКИ SOCIAL AUTH (ДОБАВЛЕНО)
+# НАСТРОЙКИ SOCIAL AUTH
 
-# ДОБАВЛЯЕМ SITE_ID (требуется для social-auth)
 SITE_ID = 1
 
-# ДОБАВЛЯЕМ НАСТРОЙКИ АУТЕНТИФИКАЦИОННЫХ БЭКЕНДОВ
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',      # Google
     'social_core.backends.github.GithubOAuth2',      # GitHub
     'django.contrib.auth.backends.ModelBackend',     # Обычный вход по email/паролю
 )
 
-# Google OAuth2
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('GOOGLE_OAUTH2_KEY', '')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_OAUTH2_SECRET', '')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
@@ -175,20 +177,16 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     'https://www.googleapis.com/auth/userinfo.profile',
 ]
 
-# GitHub OAuth2
 SOCIAL_AUTH_GITHUB_KEY = os.environ.get('GITHUB_KEY', '')
 SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('GITHUB_SECRET', '')
 SOCIAL_AUTH_GITHUB_SCOPE = ['user:email']
 
-# ДОБАВЛЯЕМ НАСТРОЙКИ REDIRECT URL
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
-# ДОБАВЛЯЕМ НАСТРОЙКИ ДЛЯ БЕЗОПАСНОСТИ (SQLite ограничения)
 SOCIAL_AUTH_UID_LENGTH = 223
 
-# ДОБАВЛЯЕМ ПАЙПЛАЙН (опционально, можно оставить стандартный)
 SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_details',
     'social_core.pipeline.social_auth.social_uid',
@@ -270,6 +268,11 @@ BATON = {
                     'name': 'Contact',
                     'label': 'Контакты'
                 },
+                {
+                    'name': 'ProductImage',
+                    'label': 'Изображения товаров'
+                },
+
             )
         },
         {
@@ -287,3 +290,7 @@ BATON = {
         {'type': 'free'},
     ),
 }
+
+# НАСТРОЙКИ IMAGEKIT
+
+IMAGEKIT_DEFAULT_CACHEFILE_STRATEGY = 'imagekit.cachefiles.strategies.Optimistic'
