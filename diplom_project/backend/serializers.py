@@ -140,14 +140,88 @@ class SocialAuthSerializer(serializers.Serializer):
     """
     provider = serializers.CharField()
     access_token = serializers.CharField()
-    
+
     def validate(self, data):
         provider = data.get('provider')
         access_token = data.get('access_token')
-        
+
         if not provider:
             raise serializers.ValidationError("Provider is required")
         if not access_token:
             raise serializers.ValidationError("Access token is required")
-            
+
         return data
+class ProductImageSerializer(serializers.ModelSerializer):
+    """Сериализатор для изображений товара"""
+    thumbnail_url = serializers.SerializerMethodField()
+    medium_url = serializers.SerializerMethodField()
+    large_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'image', 'thumbnail_url', 'medium_url', 'large_url',
+                 'is_main', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_thumbnail_url(self, obj):
+        if obj.image:
+            return obj.thumbnail.url if hasattr(obj, 'thumbnail') else None
+        return None
+
+    def get_medium_url(self, obj):
+        if obj.image:
+            return obj.medium.url if hasattr(obj, 'medium') else None
+        return None
+
+    def get_large_url(self, obj):
+        if obj.image:
+            return obj.large.url if hasattr(obj, 'large') else None
+        return None
+
+
+class UserAvatarSerializer(serializers.ModelSerializer):
+    """Сериализатор для аватара пользователя"""
+    avatar_thumbnail_url = serializers.SerializerMethodField()
+    avatar_medium_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['avatar', 'avatar_thumbnail_url', 'avatar_medium_url']
+        read_only_fields = ['avatar_thumbnail_url', 'avatar_medium_url']
+
+    def get_avatar_thumbnail_url(self, obj):
+        if obj.avatar:
+            return obj.avatar_thumbnail.url if hasattr(obj, 'avatar_thumbnail') else None
+        return None
+
+    def get_avatar_medium_url(self, obj):
+        if obj.avatar:
+            return obj.avatar_medium.url if hasattr(obj, 'avatar_medium') else None
+        return None
+
+
+class UploadImageSerializer(serializers.Serializer):
+    """Сериализатор для загрузки изображений"""
+    product_id = serializers.IntegerField(required=False)
+    image = serializers.ImageField()
+    is_main = serializers.BooleanField(default=False)
+
+class ProductWithImagesSerializer(ProductSerializer):
+    """Расширенный сериализатор товара с изображениями"""
+    images = ProductImageSerializer(many=True, read_only=True)
+    main_image_url = serializers.SerializerMethodField()
+
+    class Meta(ProductSerializer.Meta):
+        fields = ProductSerializer.Meta.fields + ['main_image', 'main_image_url', 'images']
+
+    def get_main_image_url(self, obj):
+        if obj.main_image:
+            return obj.main_image.url if obj.main_image else None
+        return None
+
+class UserRegistrationWithAvatarSerializer(UserRegistrationSerializer):
+    """Расширенный сериализатор регистрации с аватаром"""
+    avatar = serializers.ImageField(required=False)
+
+    class Meta(UserRegistrationSerializer.Meta):
+        fields = UserRegistrationSerializer.Meta.fields + ['avatar']
