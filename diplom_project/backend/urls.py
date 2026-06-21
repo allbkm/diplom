@@ -22,4 +22,6 @@ urlpatterns = [
     path('api/orders/confirm/', OrderConfirmView.as_view(), name='order-confirm'),
     path('api/orders/', OrderHistoryView.as_view(), name='orders'),
     path('api/orders/<int:order_id>/', OrderHistoryView.as_view(), name='order-detail'),
+
+    path('api/auth/social/', SocialAuthView.as_view(), name='social-auth'),
 ]
