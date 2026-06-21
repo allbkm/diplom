@@ -8,6 +8,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
+    'baton',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -23,6 +24,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_spectacular',
     'social_django',
+    'baton.autodiscover',
 
     # Local
     'backend',
@@ -198,3 +200,90 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
 )
+
+# НАСТРОЙКИ DJANGO-BATON
+
+BATON = {
+    'SITE_HEADER': 'Diplom Project Admin',
+    'SITE_TITLE': 'Diplom Project',
+    'INDEX_TITLE': 'Управление интернет-магазином',
+    'SUPPORT_HREF': 'https://github.com/your-username/diplom_project/issues',
+    'COPYRIGHT': '© 2026 Diplom Project',
+    'POWERED_BY': 'Django',
+    'CONFIRM_UNSAVED_CHANGES': True,
+    'SHOW_MULTIPART_UPLOADING': True,
+    'ENABLE_IMAGES_PREVIEW': True,
+    'CHANGELIST_FILTERS_IN_MODAL': True,
+    'CHANGELIST_FILTERS_ALWAYS_OPEN': False,
+    'CHANGELIST_FILTERS_FORM': True,
+    'MENU_ALWAYS_COLLAPSED': False,
+    'MENU_TITLE': 'Навигация',
+    'MENU': (
+        {'type': 'title', 'label': 'Основное', 'apps': ('auth',)},
+        {
+            'type': 'app',
+            'name': 'auth',
+            'label': 'Пользователи и группы',
+            'icon': 'fa fa-users',
+            'models': (
+                {
+                    'name': 'user',
+                    'label': 'Пользователи'
+                },
+                {
+                    'name': 'group',
+                    'label': 'Группы'
+                },
+            )
+        },
+        {
+            'type': 'app',
+            'name': 'backend',
+            'label': 'Магазин',
+            'icon': 'fa fa-shopping-cart',
+            'models': (
+                {
+                    'name': 'Product',
+                    'label': 'Товары'
+                },
+                {
+                    'name': 'Category',
+                    'label': 'Категории'
+                },
+                {
+                    'name': 'Shop',
+                    'label': 'Магазины'
+                },
+                {
+                    'name': 'Order',
+                    'label': 'Заказы'
+                },
+                {
+                    'name': 'Cart',
+                    'label': 'Корзины'
+                },
+                {
+                    'name': 'CartItem',
+                    'label': 'Позиции корзин'
+                },
+                {
+                    'name': 'Contact',
+                    'label': 'Контакты'
+                },
+            )
+        },
+        {
+            'type': 'app',
+            'name': 'social_django',
+            'label': 'Социальные сети',
+            'icon': 'fa fa-share-alt',
+            'models': (
+                {
+                    'name': 'UserSocialAuth',
+                    'label': 'Социальные аккаунты'
+                },
+            )
+        },
+        {'type': 'free'},
+    ),
+}
