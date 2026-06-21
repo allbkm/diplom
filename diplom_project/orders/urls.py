@@ -4,6 +4,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('baton/', include('baton.urls')),
     path('', include('backend.urls')),
     path('auth/', include('social_django.urls', namespace='social')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
