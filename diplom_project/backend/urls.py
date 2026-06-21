@@ -23,5 +23,13 @@ urlpatterns = [
     path('api/orders/', OrderHistoryView.as_view(), name='orders'),
     path('api/orders/<int:order_id>/', OrderHistoryView.as_view(), name='order-detail'),
 
+    # Соцсети
     path('api/auth/social/', SocialAuthView.as_view(), name='social-auth'),
+
+    path('api/user/avatar/', UploadAvatarView.as_view(), name='user-avatar'),
+
+    # Картинки
+    path('api/products/<int:product_id>/images/', ProductImageView.as_view(), name='product-images'),
+    path('api/products/<int:product_id>/images/<int:image_id>/', ProductImageView.as_view(), name='product-image-detail'),
+    path('api/products/images/upload/', UploadProductImageView.as_view(), name='upload-product-image'),
 ]
