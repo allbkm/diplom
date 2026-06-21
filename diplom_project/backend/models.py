@@ -1,6 +1,15 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from imagekit.models import ImageSpecField
+from imagekit.processors import ResizeToFill
+from django.core.exceptions import ValidationError
+
+def validate_image_size(value):
+    """Проверка размера изображения (не более 5MB)"""
+    filesize = value.size
+    if filesize > 5 * 1024 * 1024:
+        raise ValidationError("Максимальный размер изображения 5MB")
 
 
 class User(AbstractUser):
@@ -8,6 +17,14 @@ class User(AbstractUser):
     email = models.EmailField(unique=True, verbose_name='Email')
     first_name = models.CharField(max_length=50, verbose_name='Имя')
     last_name = models.CharField(max_length=50, verbose_name='Фамилия')
+
+    avatar = models.ImageField(
+        upload_to='avatars/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        validators=[validate_image_size],
+        verbose_name='Аватар'
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
@@ -58,6 +75,14 @@ class Product(models.Model):
     parameters = models.JSONField(default=dict, blank=True, verbose_name='Характеристики')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    main_image = models.ImageField(
+        upload_to='products/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        validators=[validate_image_size],
+        verbose_name='Главное изображение'
+    )
 
     class Meta:
         verbose_name = 'Товар'
@@ -171,3 +196,51 @@ class Order(models.Model):
 
     def __str__(self):
         return f'Заказ #{self.number}'
+
+    class ProductImage(models.Model):
+    """Дополнительные изображения товара"""
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='images',
+        verbose_name='Товар'
+    )
+    image = models.ImageField(
+        upload_to='products/%Y/%m/%d/',
+        validators=[validate_image_size],
+        verbose_name='Изображение'
+    )
+
+    # ✅ АВТОМАТИЧЕСКИЕ МИНИАТЮРЫ (создаются через imagekit)
+    thumbnail = ImageSpecField(
+        source='image',
+        processors=[ResizeToFill(200, 200)],
+        format='JPEG',
+        options={'quality': 80}
+    )
+
+    medium = ImageSpecField(
+        source='image',
+        processors=[ResizeToFill(600, 600)],
+        format='JPEG',
+        options={'quality': 85}
+    )
+
+    large = ImageSpecField(
+        source='image',
+        processors=[ResizeToFill(1200, 1200)],
+        format='JPEG',
+        options={'quality': 90}
+    )
+
+    is_main = models.BooleanField(default=False, verbose_name='Основное')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Изображение товара'
+        verbose_name_plural = 'Изображения товаров'
+        ordering = ['-is_main', 'created_at']
+
+    def __str__(self):
+        return f'Изображение для {self.product.name}'
