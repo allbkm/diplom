@@ -133,3 +133,21 @@ class OrderConfirmSerializer(serializers.Serializer):
     """Сериализатор подтверждения заказа"""
     cart_id = serializers.IntegerField()
     contact_id = serializers.IntegerField()
+
+class SocialAuthSerializer(serializers.Serializer):
+    """
+    Сериализатор для авторизации через социальные сети
+    """
+    provider = serializers.CharField()
+    access_token = serializers.CharField()
+    
+    def validate(self, data):
+        provider = data.get('provider')
+        access_token = data.get('access_token')
+        
+        if not provider:
+            raise serializers.ValidationError("Provider is required")
+        if not access_token:
+            raise serializers.ValidationError("Access token is required")
+            
+        return data
