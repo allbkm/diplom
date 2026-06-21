@@ -14,6 +14,8 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle, Scoped
 from social_django.utils import psa
 from django.contrib.auth import login
 from .serializers import SocialAuthSerializer
+from .tasks import process_user_avatar, process_product_image, process_all_product_images
+from .serializers import UploadImageSerializer, ProductImageSerializer, UserAvatarSerializer
 
 
 class RegisterThrottle(ScopedRateThrottle):
@@ -495,15 +497,7 @@ class SocialAuthView(APIView):
     )
     @psa('social:complete')
     def post(self, request, backend):
-        """
-        Авторизация через социальную сеть
 
-        Пример запроса:
-        {
-            "provider": "google-oauth2",
-            "access_token": "ya29.a0AfH6S..."
-        }
-        """
         serializer = SocialAuthSerializer(data=request.data)
         if not serializer.is_valid():
             return Response({
@@ -515,7 +509,6 @@ class SocialAuthView(APIView):
         access_token = serializer.validated_data['access_token']
 
         try:
-            # Аутентифицируем пользователя через social-auth
             user = request.backend.do_auth(access_token)
 
             if not user:
@@ -524,10 +517,9 @@ class SocialAuthView(APIView):
                     'error': 'Ошибка аутентификации через социальную сеть'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Логиним пользователя
+
             login(request, user)
 
-            # Генерируем JWT токены
             refresh = RefreshToken.for_user(user)
 
             return Response({
@@ -548,3 +540,162 @@ class SocialAuthView(APIView):
                 'status': False,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+
+class UploadAvatarView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
+
+    @extend_schema(
+        request=UserAvatarSerializer,
+        responses={200: UserAvatarSerializer},
+        description="Загрузка аватара пользователя с асинхронной обработкой",
+    )
+    def post(self, request):
+        user = request.user
+
+        if 'avatar' not in request.FILES:
+            return Response({
+                'status': False,
+                'error': 'Файл аватара не предоставлен'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        avatar_file = request.FILES['avatar']
+
+        if avatar_file.size > 5 * 1024 * 1024:
+            return Response({
+                'status': False,
+                'error': 'Размер файла не должен превышать 5MB'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        user.avatar = avatar_file
+        user.save()
+
+        process_user_avatar.delay(user.id)
+
+        serializer = UserAvatarSerializer(user)
+        return Response({
+            'status': True,
+            'message': 'Аватар загружен, обработка запущена в фоновом режиме',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        responses={200: UserAvatarSerializer},
+        description="Получение аватара пользователя",
+    )
+    def get(self, request):
+        user = request.user
+        serializer = UserAvatarSerializer(user)
+        return Response({
+            'status': True,
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class UploadProductImageView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
+
+    @extend_schema(
+        request=UploadImageSerializer,
+        responses={201: ProductImageSerializer},
+        description="Загрузка изображения товара с асинхронной обработкой",
+    )
+    def post(self, request):
+        serializer = UploadImageSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'status': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        product_id = serializer.validated_data.get('product_id')
+        image_file = serializer.validated_data['image']
+        is_main = serializer.validated_data.get('is_main', False)
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({
+                'status': False,
+                'error': 'Товар не найден'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        if image_file.size > 5 * 1024 * 1024:
+            return Response({
+                'status': False,
+                'error': 'Размер файла не должен превышать 5MB'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        product_image = ProductImage.objects.create(
+            product=product,
+            image=image_file,
+            is_main=is_main
+        )
+
+        if is_main:
+            product.main_image = image_file
+            product.save()
+
+        process_product_image.delay(product_image.id)
+
+        result_serializer = ProductImageSerializer(product_image)
+        return Response({
+            'status': True,
+            'message': 'Изображение загружено, обработка запущена в фоновом режиме',
+            'data': result_serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+
+class ProductImageView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        description="Получение всех изображений товара",
+    )
+    def get(self, request, product_id):
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({
+                'status': False,
+                'error': 'Товар не найден'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        images = product.images.all()
+        serializer = ProductImageSerializer(images, many=True)
+        return Response({
+            'status': True,
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        description="Удаление изображения товара",
+    )
+    def delete(self, request, product_id, image_id):
+        try:
+            product = Product.objects.get(id=product_id)
+            image = product.images.get(id=image_id)
+
+            # Если это основное изображение, сбрасываем main_image
+            if image.is_main:
+                product.main_image = None
+                product.save()
+
+            image.delete()
+
+            return Response({
+                'status': True,
+                'message': 'Изображение удалено'
+            }, status=status.HTTP_204_NO_CONTENT)
+
+        except Product.DoesNotExist:
+            return Response({
+                'status': False,
+                'error': 'Товар не найден'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except ProductImage.DoesNotExist:
+            return Response({
+                'status': False,
+                'error': 'Изображение не найдено'
+            }, status=status.HTTP_404_NOT_FOUND)
