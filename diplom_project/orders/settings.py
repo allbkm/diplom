@@ -14,6 +14,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
 
     # Third party
     'rest_framework',
@@ -21,6 +22,7 @@ INSTALLED_APPS = [
     'django_filters',
     'corsheaders',
     'drf_spectacular',
+    'social_django',
 
     # Local
     'backend',
@@ -50,6 +52,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'social_django.context_processors.backends',
+                'social_django.context_processors.login_redirect',
             ],
         },
     },
@@ -148,3 +152,49 @@ SPECTACULAR_SETTINGS = {
         'displayRequestDuration': True,
     },
 }
+
+# НАСТРОЙКИ SOCIAL AUTH (ДОБАВЛЕНО)
+
+# ДОБАВЛЯЕМ SITE_ID (требуется для social-auth)
+SITE_ID = 1
+
+# ДОБАВЛЯЕМ НАСТРОЙКИ АУТЕНТИФИКАЦИОННЫХ БЭКЕНДОВ
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.google.GoogleOAuth2',      # Google
+    'social_core.backends.github.GithubOAuth2',      # GitHub
+    'django.contrib.auth.backends.ModelBackend',     # Обычный вход по email/паролю
+)
+
+# Google OAuth2
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get('GOOGLE_OAUTH2_KEY', '')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get('GOOGLE_OAUTH2_SECRET', '')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+]
+
+# GitHub OAuth2
+SOCIAL_AUTH_GITHUB_KEY = os.environ.get('GITHUB_KEY', '')
+SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('GITHUB_SECRET', '')
+SOCIAL_AUTH_GITHUB_SCOPE = ['user:email']
+
+# ДОБАВЛЯЕМ НАСТРОЙКИ REDIRECT URL
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
+# ДОБАВЛЯЕМ НАСТРОЙКИ ДЛЯ БЕЗОПАСНОСТИ (SQLite ограничения)
+SOCIAL_AUTH_UID_LENGTH = 223
+
+# ДОБАВЛЯЕМ ПАЙПЛАЙН (опционально, можно оставить стандартный)
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+)
