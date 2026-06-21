@@ -11,6 +11,9 @@ from .permissions import IsAuthenticated
 from .tasks import send_order_confirmation_email
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle, ScopedRateThrottle
+from social_django.utils import psa
+from django.contrib.auth import login
+from .serializers import SocialAuthSerializer
 
 
 class RegisterThrottle(ScopedRateThrottle):
@@ -459,3 +462,89 @@ class OrderHistoryView(APIView):
                 'status': True,
                 'orders': serializer.data
             })
+
+
+class SocialAuthView(APIView):
+    """
+    Авторизация через социальные сети (Google, GitHub)
+    """
+    permission_classes = []
+    throttle_classes = [LoginThrottle]
+
+    @extend_schema(
+        request=SocialAuthSerializer,
+        responses={200: {
+            'type': 'object',
+            'properties': {
+                'status': {'type': 'boolean'},
+                'message': {'type': 'string'},
+                'access_token': {'type': 'string'},
+                'refresh_token': {'type': 'string'},
+                'user': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'integer'},
+                        'email': {'type': 'string'},
+                        'first_name': {'type': 'string'},
+                        'last_name': {'type': 'string'}
+                    }
+                }
+            }
+        }},
+        description="Авторизация через социальные сети",
+    )
+    @psa('social:complete')
+    def post(self, request, backend):
+        """
+        Авторизация через социальную сеть
+
+        Пример запроса:
+        {
+            "provider": "google-oauth2",
+            "access_token": "ya29.a0AfH6S..."
+        }
+        """
+        serializer = SocialAuthSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'status': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        provider = serializer.validated_data['provider']
+        access_token = serializer.validated_data['access_token']
+
+        try:
+            # Аутентифицируем пользователя через social-auth
+            user = request.backend.do_auth(access_token)
+
+            if not user:
+                return Response({
+                    'status': False,
+                    'error': 'Ошибка аутентификации через социальную сеть'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Логиним пользователя
+            login(request, user)
+
+            # Генерируем JWT токены
+            refresh = RefreshToken.for_user(user)
+
+            return Response({
+                'status': True,
+                'message': f'Успешная авторизация через {provider}',
+                'access_token': str(refresh.access_token),
+                'refresh_token': str(refresh),
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name
+                }
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'status': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
