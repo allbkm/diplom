@@ -211,7 +211,7 @@ class Order(models.Model):
         verbose_name='Изображение'
     )
 
-    # ✅ АВТОМАТИЧЕСКИЕ МИНИАТЮРЫ (создаются через imagekit)
+    # АВТОМАТИЧЕСКИЕ МИНИАТЮРЫ (создаются через imagekit)
     thumbnail = ImageSpecField(
         source='image',
         processors=[ResizeToFill(200, 200)],
