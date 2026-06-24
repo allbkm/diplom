@@ -35,5 +35,9 @@ urlpatterns = [
 
     # ТЕСТОВЫЙ URL ДЛЯ SENTRY
     path('api/sentry-test/', SentryTestView.as_view(), name='sentry-test'),
+
+    # ДОБАВЛЯЕМ URL ДЛЯ КЭШИРОВАНИЯ
+    path('api/cache/clear/', ClearCacheView.as_view(), name='clear-cache'),
+    path('api/cache/stats/', ClearCacheView.as_view(), name='cache-stats'),
 ]
 
