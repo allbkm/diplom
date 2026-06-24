@@ -32,4 +32,8 @@ urlpatterns = [
     path('api/products/<int:product_id>/images/', ProductImageView.as_view(), name='product-images'),
     path('api/products/<int:product_id>/images/<int:image_id>/', ProductImageView.as_view(), name='product-image-detail'),
     path('api/products/images/upload/', UploadProductImageView.as_view(), name='upload-product-image'),
+
+    # ТЕСТОВЫЙ URL ДЛЯ SENTRY
+    path('api/sentry-test/', SentryTestView.as_view(), name='sentry-test'),
 ]
+
