@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'social_django',
     'imagekit',
+    'cacheops',
     'baton.autodiscover',
 
     # Local
@@ -313,3 +314,44 @@ BATON = {
 # НАСТРОЙКИ IMAGEKIT
 
 IMAGEKIT_DEFAULT_CACHEFILE_STRATEGY = 'imagekit.cachefiles.strategies.Optimistic'
+
+# НАСТРОЙКИ CACHEOPS
+
+CACHEOPS_REDIS = os.environ.get('REDIS_URL', 'redis://localhost:6379/1')
+
+CACHEOPS_ENABLED = True
+
+CACHEOPS_DEFAULTS = {
+    'timeout': 60 * 15,  # 15 минут
+}
+
+CACHEOPS = {
+    'auth.*': {'ops': 'get', 'timeout': 60 * 60},  # 1 час для auth
+    'backend.Product': {'ops': 'all', 'timeout': 60 * 15},  # 15 минут
+    'backend.Category': {'ops': 'all', 'timeout': 60 * 60},  # 1 час
+    'backend.Shop': {'ops': 'all', 'timeout': 60 * 60},  # 1 час
+    'backend.Contact': {'ops': 'get', 'timeout': 60 * 30},  # 30 минут
+    'backend.Cart': {'ops': 'get', 'timeout': 60 * 5},  # 5 минут
+    'backend.Order': {'ops': 'get', 'timeout': 60 * 5},  # 5 минут
+}
+
+# НАСТРОЙКИ REDIS
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.environ.get('REDIS_URL', 'redis://localhost:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'PARSER_CLASS': 'redis.connection.HiredisParser',
+            'CONNECTION_POOL_CLASS': 'redis.BlockingConnectionPool',
+            'CONNECTION_POOL_CLASS_KWARGS': {
+                'max_connections': 50,
+                'timeout': 20,
+            },
+            'MAX_CONNECTIONS': 1000,
+            'PICKLE_VERSION': -1,
+        },
+        'KEY_PREFIX': 'diplom',
+    }
+}
