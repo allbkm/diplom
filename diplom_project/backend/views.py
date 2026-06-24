@@ -699,3 +699,39 @@ class ProductImageView(APIView):
                 'status': False,
                 'error': 'Изображение не найдено'
             }, status=status.HTTP_404_NOT_FOUND)
+
+class SentryTestView(APIView):
+    """
+    Тестовый эндпоинт для проверки работы Sentry
+    """
+    permission_classes = []
+    throttle_classes = []
+
+    @extend_schema(
+        description="Тестовый эндпоинт для проверки Sentry. Вызывает исключение.",
+        responses={
+            500: {
+                'type': 'object',
+                'properties': {
+                    'status': {'type': 'boolean'},
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    )
+    def get(self, request):
+        """
+        Вызывает исключение для тестирования Sentry
+        """
+        try:
+            # Имитация ошибки
+            raise ValueError("Тестовая ошибка для Sentry! Проверка работы мониторинга.")
+        except Exception as e:
+            # Отправляем ошибку в Sentry
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
+
+            return Response({
+                'status': False,
+                'error': 'Произошла тестовая ошибка. Проверьте Sentry для деталей.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
