@@ -16,6 +16,10 @@ from django.contrib.auth import login
 from .serializers import SocialAuthSerializer
 from .tasks import process_user_avatar, process_product_image, process_all_product_images
 from .serializers import UploadImageSerializer, ProductImageSerializer, UserAvatarSerializer
+from django.core.cache import cache
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
+import time
 
 
 class RegisterThrottle(ScopedRateThrottle):
@@ -122,7 +126,7 @@ class LoginView(APIView):
 
 class ProductListView(ListAPIView):
     """
-    Список товаров с фильтрацией и поиском
+    Список товаров с фильтрацией и поиском (с кэшированием)
     """
     serializer_class = ProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -141,10 +145,18 @@ class ProductListView(ListAPIView):
         ],
         description="Получение списка товаров с фильтрацией и поиском",
     )
+    @method_decorator(cache_page(60 * 15))  #Кэшируем весь ответ на 15 минут
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
+        cache_key = f'products_{self.request.query_params.urlencode()}'
+
+        cached_data = cache.get(cache_key)
+
+        if cached_data is not None:
+            return cached_data
+
         queryset = Product.objects.select_related('category', 'shop').all()
 
         min_price = self.request.query_params.get('min_price')
@@ -155,21 +167,34 @@ class ProductListView(ListAPIView):
         if max_price:
             queryset = queryset.filter(price__lte=max_price)
 
+        cache.set(cache_key, queryset, timeout=60 * 15)
+
         return queryset
 
     def list(self, request, *args, **kwargs):
+        start_time = time.time()
+
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
+
+        elapsed_time = (time.time() - start_time) * 1000  # в миллисекундах
+
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            response = self.get_paginated_response(serializer.data)
+        else:
+            serializer = self.get_serializer(queryset, many=True)
+            response = Response({
+                'status': True,
+                'count': queryset.count(),
+                'results': serializer.data
+            })
 
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({
-            'status': True,
-            'count': queryset.count(),
-            'results': serializer.data
-        })
+        response['X-Query-Time'] = f'{elapsed_time:.2f}ms'
+        cache_key = f'products_{request.query_params.urlencode()}'
+        response['X-Cache-Status'] = 'HIT' if cache.get(cache_key) is not None else 'MISS'
+
+        return response
 
 
 class ContactView(APIView):
@@ -735,3 +760,45 @@ class SentryTestView(APIView):
                 'status': False,
                 'error': 'Произошла тестовая ошибка. Проверьте Sentry для деталей.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ClearCacheView(APIView):
+    """
+    Очистка кэша (только для администраторов)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not request.user.is_staff:
+            return Response({
+                'status': False,
+                'error': 'Доступ только для администраторов'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        cache.clear()
+
+        return Response({
+            'status': True,
+            'message': 'Кэш успешно очищен'
+        }, status=status.HTTP_200_OK)
+
+    def get(self, request):
+        if not request.user.is_staff:
+            return Response({
+                'status': False,
+                'error': 'Доступ только для администраторов'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            info = cache.info() if hasattr(cache, 'info') else {}
+            stats = {
+                'keys': info.get('keys', 0),
+                'hits': info.get('hits', 0),
+                'misses': info.get('misses', 0),
+            }
+        except:
+            stats = {'keys': 'N/A', 'hits': 'N/A', 'misses': 'N/A'}
+
+        return Response({
+            'status': True,
+            'cache_stats': stats
+        }, status=status.HTTP_200_OK)
